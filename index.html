@@ -3,43 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Layar Utama - Orbit Game</title>
+    <title>Orbit Game - Layar Utama</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #2c3e50; color: white; padding-top: 50px; }
-        .container { background: #34495e; padding: 40px; border-radius: 12px; display: inline-block; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background-color: #2c3e50; color: white; margin: 0; padding: 0; overflow: hidden; }
+        
+        /* Tampilan Lobby (Scan QR) */
+        #lobby-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #34495e; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10; }
         #qrcode { margin: 20px auto; background: white; padding: 15px; border-radius: 8px; display: inline-block; }
-        h1 { margin-bottom: 10px; color: #ecf0f1; }
         #status-teks { font-size: 1.2rem; color: #f1c40f; font-weight: bold; }
         
-        /* Area simulasi game ketika terhubung */
-        #game-area { display: none; margin-top: 30px; }
-        .bola-trigger { display: inline-block; width: 100px; height: 100px; background-color: #e74c3c; border-radius: 50%; transition: transform 0.1s; }
+        /* Area Game Utama */
+        #game-area { display: none; width: 100vw; height: 100vh; position: relative; }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        #pesan-game { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; font-weight: bold; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="container" id="lobby-area">
-        <h1>Scan untuk Bermain!</h1>
-        <p>Arahkan kamera HP Anda ke QR Code di bawah ini</p>
-        
+    <div id="lobby-area">
+        <h1 style="margin-top:0;">Scan untuk Bermain!</h1>
+        <p>Arahkan kamera HP Anda ke QR Code ini</p>
         <div id="qrcode"></div>
-        
         <p id="status-teks">Menunggu pemain terhubung...</p>
         <p style="font-size: 0.9rem; color: #bdc3c7;">Room ID: <span id="room-id-display"></span></p>
     </div>
 
-    <div class="container" id="game-area">
-        <h1 style="color: #2ecc71;">Pemain Terhubung!</h1>
-        <p>Silakan tekan tombol pemicu di HP Anda.</p>
-        <div class="bola-trigger" id="bola-visual"></div>
-        <h2 id="log-trigger">Menunggu tembakan...</h2>
+    <div id="game-area">
+        <div id="pesan-game">Pemain Terhubung! Tekan tombol di HP untuk menembak.</div>
+        <canvas id="gameCanvas"></canvas>
     </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+    // Konfigurasi Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyB00E-07MNJoN0IfNOsCm9KcH-y7TTwvYQ",
         authDomain: "belajar-github-firestore.firebaseapp.com",
@@ -52,58 +52,160 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 1. Generate ID Ruangan Acak (Contoh: Room-8A2B)
+    /* =========================================
+       BAGIAN 1: SISTEM KONEKSI LOBBY & QR CODE
+       ========================================= */
     const roomId = "Room-" + Math.random().toString(36).substring(2, 6).toUpperCase();
     document.getElementById("room-id-display").innerText = roomId;
 
-    // 2. Tentukan URL untuk HP (Otomatis mendeteksi domain tempat HTML ini di-host)
-    // Ingat: file controller.html harus berada di folder yang sama dengan game.html
-    const currentUrl = window.location.href.replace("game.html", ""); 
-    const controllerUrl = `${currentUrl}controller.html?room=${roomId}`;
+    const currentUrl = window.location.href.split('/').slice(0, -1).join('/'); 
+    const controllerUrl = `${currentUrl}/controller.html?room=${roomId}`;
 
-    // 3. Buat QR Code
-    new QRCode(document.getElementById("qrcode"), {
-        text: controllerUrl,
-        width: 200,
-        height: 200,
-    });
+    new QRCode(document.getElementById("qrcode"), { text: controllerUrl, width: 200, height: 200 });
 
-    // 4. Siapkan Dokumen di Firestore & Mulai Mendengarkan (Listen)
-    const docRef = doc(db, "sesi_game", roomId);
+    let triggerTerakhir = 0; // Untuk mencegah trigger dieksekusi berkali-kali
 
     async function inisialisasiRoom() {
-        // Buat dokumen dengan status awal
+        const docRef = doc(db, "sesi_game", roomId);
         await setDoc(docRef, { status: "menunggu", triggerTime: 0 });
 
-        // Mulai dengarkan perubahan secara real-time
         onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
                 const data = snapshot.data();
 
-                // Cek apakah HP sudah scan dan mengubah status
+                // Jika HP sukses terkoneksi, sembunyikan Lobby dan tampilkan Game
                 if (data.status === "terhubung") {
                     document.getElementById("lobby-area").style.display = "none";
                     document.getElementById("game-area").style.display = "block";
+                    resizeCanvas(); // Sesuaikan ukuran layar saat mulai
                 }
 
-                // Cek apakah tombol di HP ditekan (berdasarkan perubahan timestamp)
-                if (data.triggerTime > 0) {
-                    const logEl = document.getElementById("log-trigger");
-                    const bolaEl = document.getElementById("bola-visual");
+                // Jika tombol di HP ditekan (waktu berubah)
+                if (data.triggerTime > 0 && data.triggerTime !== triggerTerakhir) {
+                    triggerTerakhir = data.triggerTime;
                     
-                    logEl.innerText = "🔥 Tembakan Diterima! (" + data.triggerTime + ")";
-                    
-                    // Efek visual sederhana membesar lalu mengecil saat tombol HP ditekan
-                    bolaEl.style.transform = "scale(1.5)";
-                    setTimeout(() => {
-                        bolaEl.style.transform = "scale(1)";
-                    }, 150);
+                    // PANGGIL FUNGSI FISIKA GAME UNTUK MELEPASKAN BOLA
+                    lepaskanBolaKecil(); 
                 }
             }
         });
     }
 
     inisialisasiRoom();
+
+    /* =========================================
+       BAGIAN 2: FISIKA GAME ENGINE (CANVAS HTML5)
+       ========================================= */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Menyesuaikan ukuran canvas dengan ukuran layar laptop
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        // Posisikan bola besar tepat di tengah layar
+        bolaBesar.x = canvas.width / 2;
+        bolaBesar.y = canvas.height / 2;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // Data Objek di dalam Game
+    const bolaBesar = { 
+        x: window.innerWidth / 2, 
+        y: window.innerHeight / 2, 
+        radius: 60,
+        warna: '#3498db'
+    };
+
+    const bolaKecil = {
+        radius: 15,
+        warna: '#e74c3c',
+        jarakOrbit: 160,     // Jarak bola kecil ke tengah bola besar
+        sudut: 0,            // Posisi derajat saat ini
+        kecepatanRotasi: 0.06, // Semakin besar, semakin cepat mutarnya
+        status: 'mengorbit', // Bisa 'mengorbit' atau 'lepas'
+        x: 0, 
+        y: 0,
+        vx: 0, // Vektor laju X saat lepas
+        vy: 0  // Vektor laju Y saat lepas
+    };
+
+    // Fungsi Loopping Animasi (Berjalan 60 Frame per Detik)
+    function jalankanGame() {
+        // Hapus layar sebelumnya agar animasi terlihat bergerak
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Gambar Bola Besar (Pusat)
+        ctx.beginPath();
+        ctx.arc(bolaBesar.x, bolaBesar.y, bolaBesar.radius, 0, Math.PI * 2);
+        ctx.fillStyle = bolaBesar.warna;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = bolaBesar.warna;
+        ctx.fill();
+        ctx.closePath();
+
+        // 2. Logika Pergerakan Bola Kecil
+        if (bolaKecil.status === 'mengorbit') {
+            // Hitung putaran menggunakan Trigonometri
+            bolaKecil.sudut += bolaKecil.kecepatanRotasi;
+            bolaKecil.x = bolaBesar.x + bolaKecil.jarakOrbit * Math.cos(bolaKecil.sudut);
+            bolaKecil.y = bolaBesar.y + bolaKecil.jarakOrbit * Math.sin(bolaKecil.sudut);
+            
+            // Gambar Garis Lintasan Rotasi (opsional agar terlihat keren)
+            ctx.beginPath();
+            ctx.arc(bolaBesar.x, bolaBesar.y, bolaKecil.jarakOrbit, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.closePath();
+
+        } else if (bolaKecil.status === 'lepas') {
+            // Bola terbang lurus sesuai vektor saat dilepas
+            bolaKecil.x += bolaKecil.vx;
+            bolaKecil.y += bolaKecil.vy;
+
+            // Jika bola keluar dari area layar laptop, kembalikan ke rotasi awal
+            if (bolaKecil.x < 0 || bolaKecil.x > canvas.width || 
+                bolaKecil.y < 0 || bolaKecil.y > canvas.height) {
+                
+                bolaKecil.status = 'mengorbit';
+                document.getElementById("pesan-game").innerText = "Meleset! Coba tekan lagi.";
+                document.getElementById("pesan-game").style.color = "#e74c3c";
+            }
+        }
+
+        // 3. Gambar Bola Kecil
+        ctx.beginPath();
+        ctx.arc(bolaKecil.x, bolaKecil.y, bolaKecil.radius, 0, Math.PI * 2);
+        ctx.fillStyle = bolaKecil.warna;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = bolaKecil.warna;
+        ctx.fill();
+        ctx.closePath();
+
+        // Ulangi terus menerus
+        requestAnimationFrame(jalankanGame);
+    }
+
+    // Fungsi yang dipanggil saat HP menekan tombol
+    function lepaskanBolaKecil() {
+        if (bolaKecil.status === 'mengorbit') {
+            bolaKecil.status = 'lepas';
+            
+            // Menghitung arah terbang (Garis Singgung / Tangential Velocity)
+            // Arahnya adalah sudut rotasi ditambah 90 derajat (Math.PI / 2)
+            const kecepatanTerbang = 12; // Seberapa cepat bolanya melesat
+            bolaKecil.vx = kecepatanTerbang * Math.cos(bolaKecil.sudut + Math.PI / 2);
+            bolaKecil.vy = kecepatanTerbang * Math.sin(bolaKecil.sudut + Math.PI / 2);
+
+            document.getElementById("pesan-game").innerText = "Bola Ditembakkan!";
+            document.getElementById("pesan-game").style.color = "#2ecc71";
+        }
+    }
+
+    // Mulai animasi
+    jalankanGame();
+
 </script>
 </body>
 </html>
