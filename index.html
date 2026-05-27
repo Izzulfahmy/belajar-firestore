@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbit Jump - Clean Galaxy</title>
+    <title>Orbit Jump - Perfect Spacing</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background-color: #0b0f19; color: white; margin: 0; padding: 0; overflow: hidden; }
@@ -15,7 +15,6 @@
         #game-area { display: none; width: 100vw; height: 100vh; position: relative; }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* Tombol Reset Minimalis */
         #btn-reset { position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: bold; backdrop-filter: blur(5px); transition: 0.2s; z-index: 20; }
         #btn-reset:hover { background: rgba(255, 255, 255, 0.2); }
     </style>
@@ -30,7 +29,7 @@
     </div>
 
     <div id="game-area">
-        <button id="btn-reset">Reset Level</button>
+        <button id="btn-reset">Acak Ulang Level</button>
         <canvas id="gameCanvas"></canvas>
     </div>
 
@@ -92,11 +91,11 @@
     let targetKameraY = 0;
 
     const bolaKecil = {
-        radius: 10,
+        radius: 12,
         warna: '#ff7675',
         sudut: 0,
         kecepatanRotasi: 0.045, 
-        kecepatanTerbang: 20, 
+        kecepatanTerbang: 22, // Dipercepat sedikit karena gap antar bola membesar
         status: 'mengorbit', 
         x: 0, 
         y: 0,
@@ -105,51 +104,83 @@
         history: [] 
     };
 
-    // GENERASI LEVEL: Banyak bola, sangat rapat, dan menyebar bebas
+    // GENERASI LEVEL DENGAN ALGORITMA ANTI-TUMPUK (SPATIAL CHECKING)
     function susunLevel() {
         nodesArray = [];
         let tengahX = window.innerWidth / 2;
         let lebarLayar = window.innerWidth;
         
-        // 1. Bola Start (Awal)
-        nodesArray.push({ x: tengahX, y: 0, radius: 45, warna: '#0984e3' });
+        // 1. Bola Start (Awal) dijamin aman di tengah bawah
+        nodesArray.push({ x: tengahX, y: 0, radius: 60, warna: '#0984e3' });
         
         const warnaWarni = ['#a01a58', '#6c5ce7', '#00b894', '#e17055', '#fdcb6e', '#00cec9', '#e84393', '#6f11d1', '#26de81'];
         
-        // 2. Ladang Bola Besar (150+ bola yang disebar secara rapat)
-        let tinggiMaksimal = 8000; // Seberapa tinggi langit permainannya
-        let jumlahBola = 180; 
+        let tinggiMaksimal = 14000; // Ruang vertikal ditingkatkan drastis agar muat bola besar
+        let targetJumlahBola = 160; 
+        let batasPercobaan = 3000; // Mencegah freeze jika layar penuh
+        let bolaBerhasilDibuat = 0;
 
-        for (let i = 0; i < jumlahBola; i++) {
-            // Posisi X menyebar dari ujung kiri hingga ujung kanan layar
-            let acakX = 50 + Math.random() * (lebarLayar - 100); 
-            // Posisi Y diacak di rentang tinggi langit
-            let acakY = -(Math.random() * tinggiMaksimal) - 150; 
+        // 2. Membentuk Bola Secara Acak & Mengecek Tabrakan
+        for (let i = 0; i < batasPercobaan; i++) {
+            if (bolaBerhasilDibuat >= targetJumlahBola) break;
+
+            let radiusAcak = 40 + Math.random() * 45; // Ukuran diperbesar (40px s/d 85px)
             
-            let radiusAcak = 20 + Math.random() * 30; // Ukuran 20 hingga 50
-            let warnaAcak = warnaWarni[Math.floor(Math.random() * warnaWarni.length)];
+            // Jangan terlalu ke pinggir layar
+            let acakX = radiusAcak + 30 + Math.random() * (lebarLayar - (radiusAcak * 2) - 60); 
+            let acakY = -(Math.random() * tinggiMaksimal) - 200; 
 
-            nodesArray.push({ x: acakX, y: acakY, radius: radiusAcak, warna: warnaAcak });
+            // Cek Spasial: Apakah posisi ini menabrak bola lain yang sudah ada?
+            let posisiAman = true;
+            for (let j = 0; j < nodesArray.length; j++) {
+                let bolaLain = nodesArray[j];
+                let dx = acakX - bolaLain.x;
+                let dy = acakY - bolaLain.y;
+                let jarakAntarPusat = Math.sqrt(dx*dx + dy*dy);
+                
+                // Jarak batas aman = radius bola A + radius bola B + jarak kosong ekstra
+                let jarakKosongEkstra = 60 + Math.random() * 40; // Ada ruang 60-100px antar bola
+                let batasAman = radiusAcak + bolaLain.radius + jarakKosongEkstra;
+
+                if (jarakAntarPusat < batasAman) {
+                    posisiAman = false; // Terlalu dekat, batalkan letak bola ini
+                    break;
+                }
+            }
+
+            // Jika aman, masukkan ke dalam arena permainan
+            if (posisiAman) {
+                let warnaAcak = warnaWarni[Math.floor(Math.random() * warnaWarni.length)];
+                nodesArray.push({ x: acakX, y: acakY, radius: radiusAcak, warna: warnaAcak });
+                bolaBerhasilDibuat++;
+            }
         }
 
-        // 3. Bola Emas (FINISH) selalu diletakkan paling atas
+        // Cari tahu bola mana yang posisinya paling atas/tinggi untuk meletakkan Finish
+        let yTertinggi = 0;
+        for (let j = 0; j < nodesArray.length; j++) {
+            if (nodesArray[j].y < yTertinggi) {
+                yTertinggi = nodesArray[j].y;
+            }
+        }
+
+        // 3. Letakkan Bola Emas di atas bola tertinggi
         nodesArray.push({
             x: tengahX,
-            y: -tinggiMaksimal - 300,
-            radius: 65,
-            warna: '#ffd700', // Warna Emas
+            y: yTertinggi - 350,
+            radius: 85,
+            warna: '#ffd700', // Cahaya Emas
             finish: true
         });
 
-        // Reset Status Pemain
+        // Reset Data Pemain
         currentNodeIndex = 0;
         bolaKecil.status = 'mengorbit';
-        bolaKecil.sudut = -Math.PI / 2; // Mulai menghadap ke atas
+        bolaKecil.sudut = -Math.PI / 2; 
         bolaKecil.history = []; 
         if(nodesArray.length > 0) kameraY = nodesArray[0].y;
     }
 
-    // Tombol Reset Event Listener
     document.getElementById('btn-reset').addEventListener('click', () => {
         susunLevel();
     });
@@ -171,25 +202,23 @@
         }
 
         targetKameraY = nodesArray[currentNodeIndex].y;
-        kameraY += (targetKameraY - kameraY) * 0.07; 
+        kameraY += (targetKameraY - kameraY) * 0.08; 
 
-        // 1. MENGGAMBAR SEMUA BOLA BESAR
+        // 1. MENGGAMBAR BOLA BESAR
         for(let i = 0; i < nodesArray.length; i++) {
             let node = nodesArray[i];
             let drawY = node.y - kameraY + canvas.height / 2;
 
-            // Optimasi: Hanya render bola yang ada di dalam layar
-            if (drawY > -150 && drawY < canvas.height + 150) {
+            if (drawY > -200 && drawY < canvas.height + 200) {
                 ctx.beginPath();
                 ctx.arc(node.x, drawY, node.radius, 0, Math.PI * 2);
                 ctx.fillStyle = node.warna;
                 
-                // Efek glow khusus untuk bola finish atau bola yang dipijak
                 if (node.finish) {
                     ctx.shadowBlur = 40;
-                    ctx.shadowColor = '#ffd700'; // Cahaya emas terang
+                    ctx.shadowColor = '#ffd700'; 
                 } else if(i === currentNodeIndex) {
-                    ctx.shadowBlur = 20; 
+                    ctx.shadowBlur = 25; 
                     ctx.shadowColor = node.warna;
                 } else {
                     ctx.shadowBlur = 0;
@@ -202,9 +231,9 @@
         }
 
         let nodeAktif = nodesArray[currentNodeIndex];
-        let jarakOrbitIdeal = nodeAktif.radius + 25;
+        let jarakOrbitIdeal = nodeAktif.radius + 30; // Radius melingkar menyesuaikan besarnya bola
 
-        // 2. LOGIKA BOLA KECIL (ORBIT & LEPAS)
+        // 2. LOGIKA BOLA KECIL
         if (bolaKecil.status === 'mengorbit') {
             bolaKecil.sudut += bolaKecil.kecepatanRotasi;
             bolaKecil.x = nodeAktif.x + jarakOrbitIdeal * Math.cos(bolaKecil.sudut);
@@ -214,40 +243,38 @@
             bolaKecil.x += bolaKecil.vx;
             bolaKecil.y += bolaKecil.vy;
 
-            // Deteksi tabrakan ke banyak bola dengan lebih presisi
             for (let i = 0; i < nodesArray.length; i++) {
                 if (i === currentNodeIndex) continue;
 
                 let targetNode = nodesArray[i];
-                let jarakTargetOrbit = targetNode.radius + 25;
+                let jarakTargetOrbit = targetNode.radius + 30;
                 
                 let dx = bolaKecil.x - targetNode.x;
                 let dy = bolaKecil.y - targetNode.y;
                 let distance = Math.sqrt(dx*dx + dy*dy);
 
-                if (distance <= jarakTargetOrbit + 12) { 
+                // Toleransi pendaratan disesuaikan agar tidak mudah gagal tapi tidak terlalu mudah
+                if (distance <= jarakTargetOrbit + 20) { 
                     currentNodeIndex = i; 
                     bolaKecil.status = 'mengorbit';
                     bolaKecil.sudut = Math.atan2(dy, dx); 
                     
                     if (targetNode.finish) {
-                        // Jika kena bola emas, biarkan berputar menikmati kemenangan
-                        bolaKecil.kecepatanRotasi = 0.08; // Putar lebih cepat saat menang
+                        bolaKecil.kecepatanRotasi = 0.08; 
                     }
                     break;
                 }
             }
 
-            // Batas Jatuh (Game Over senyap, langsung spawn dari awal)
             let batasBawahKamera = kameraY + (canvas.height / 2); 
-            if (bolaKecil.y > batasBawahKamera + 200 || bolaKecil.x < -200 || bolaKecil.x > canvas.width + 200) {
-                susunLevel(); // Reset otomatis tanpa teks notifikasi
+            if (bolaKecil.y > batasBawahKamera + 300 || bolaKecil.x < -300 || bolaKecil.x > canvas.width + 300) {
+                susunLevel(); 
             }
         }
 
         // 3. EFEK EKOR BOLA KECIL
         bolaKecil.history.push({ x: bolaKecil.x, y: bolaKecil.y });
-        if (bolaKecil.history.length > 15) {
+        if (bolaKecil.history.length > 20) {
             bolaKecil.history.shift(); 
         }
 
@@ -255,7 +282,7 @@
             let posisiLama = bolaKecil.history[i];
             let drawEkorY = posisiLama.y - kameraY + canvas.height / 2;
             let rasioEkor = i / bolaKecil.history.length; 
-            let transparansi = rasioEkor * 0.4; 
+            let transparansi = rasioEkor * 0.45; 
             let radiusEkor = bolaKecil.radius * (0.3 + rasioEkor * 0.7); 
 
             ctx.beginPath();
