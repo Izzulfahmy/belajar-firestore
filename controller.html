@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Controller HP</title>
+    <style>
+        /* Desain UI Minimalis agar seluruh layar menjadi tombol */
+        body, html { height: 100%; margin: 0; display: flex; align-items: center; justify-content: center; background-color: #ecf0f1; font-family: sans-serif; overflow: hidden; }
+        
+        #btn-trigger {
+            width: 80vw;
+            height: 80vw;
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 50%;
+            background-color: #e74c3c;
+            color: white;
+            font-size: 2rem;
+            font-weight: bold;
+            border: 8px solid #c0392b;
+            box-shadow: 0 10px 25px rgba(231, 76, 60, 0.4);
+            cursor: pointer;
+            transition: transform 0.1s;
+            display: none; /* Disembunyikan sebelum koneksi berhasil */
+            user-select: none;
+        }
+        
+        #btn-trigger:active { transform: scale(0.9); box-shadow: 0 5px 10px rgba(231, 76, 60, 0.4); }
+        #status-info { text-align: center; color: #333; font-size: 1.2rem; position: absolute; top: 20px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="status-info">Menganalisis URL Room...</div>
+    
+    <button id="btn-trigger">TEMBAK!</button>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyB00E-07MNJoN0IfNOsCm9KcH-y7TTwvYQ",
+        authDomain: "belajar-github-firestore.firebaseapp.com",
+        projectId: "belajar-github-firestore",
+        storageBucket: "belajar-github-firestore.firebasestorage.app",
+        messagingSenderId: "246762592469",
+        appId: "1:246762592469:web:595d8f2a8a78909771aa5c"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 1. Ekstrak 'Room ID' dari Parameter URL (misal: ?room=Room-8A2B)
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('room');
+
+    const statusInfo = document.getElementById("status-info");
+    const btnTrigger = document.getElementById("btn-trigger");
+
+    if (roomId) {
+        statusInfo.innerText = "Menghubungkan ke " + roomId + "...";
+        const docRef = doc(db, "sesi_game", roomId);
+
+        // 2. Beri tahu Laptop bahwa HP ini sudah berhasil masuk ke Room
+        async function hubungkanKeLaptop() {
+            try {
+                await updateDoc(docRef, {
+                    status: "terhubung"
+                });
+                
+                // Ubah UI menjadi mode siap tembak
+                statusInfo.innerText = "Terhubung! (ID: " + roomId + ")";
+                btnTrigger.style.display = "block";
+            } catch (error) {
+                statusInfo.innerText = "Error: Ruangan tidak ditemukan.";
+                console.error(error);
+            }
+        }
+        
+        hubungkanKeLaptop();
+
+        // 3. Logika Utama: Kirim Waktu Eksekusi ke Firestore saat Layar HP disentuh
+        btnTrigger.addEventListener("pointerdown", async (e) => {
+            e.preventDefault(); // Mencegah double tap zoom bawaan browser HP
+            
+            try {
+                await updateDoc(docRef, {
+                    triggerTime: Date.now() // Mengirim timestamp spesifik dalam hitungan milidetik
+                });
+                
+                // Sedikit haptic feedback jika browser HP mendukung
+                if (navigator.vibrate) navigator.vibrate(50);
+            } catch (error) {
+                console.error("Gagal mengirim trigger", error);
+            }
+        });
+
+    } else {
+        statusInfo.innerText = "Gagal: URL tidak valid (Tidak ada Room ID). Harap scan QR Code melalui Layar Laptop.";
+    }
+</script>
+</body>
+</html>
