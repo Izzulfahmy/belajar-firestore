@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbit Jump - Dynamic Momentum</title>
+    <title>Orbit Jump - Neon Space Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background-color: #0b0f19; color: white; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; text-align: center; background-color: #060913; color: white; margin: 0; padding: 0; overflow: hidden; }
         
-        #lobby-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111827; padding: 40px; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.7); border: 1px solid #1f2937; z-index: 10; }
-        #qrcode { margin: 20px auto; background: white; padding: 15px; border-radius: 8px; display: inline-block; }
-        #status-teks { font-size: 1.2rem; color: #f1c40f; font-weight: bold; }
+        /* LOBBY AREA: Modern Cyberpunk Card */
+        #lobby-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(13, 18, 30, 0.85); padding: 45px; border-radius: 24px; box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 50px rgba(56, 189, 248, 0.15); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(16px); z-index: 10; max-width: 380px; width: 90%; }
+        #lobby-area h1 { margin-top: 0; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.5px; color: #f8fafc; }
+        #qrcode { margin: 25px auto; background: white; padding: 18px; border-radius: 16px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        #status-teks { font-size: 1.05rem; color: #fbbf24; font-weight: 600; letter-spacing: 0.5px; }
         
         #game-area { display: none; width: 100vw; height: 100vh; position: relative; }
-        canvas { display: block; width: 100%; height: 100%; }
+        canvas { display: block; width: 100%; height: 100%; background: radial-gradient(circle at center, #0f172a 0%, #070a13 100%); }
         
-        #btn-reset { position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: bold; backdrop-filter: blur(5px); transition: 0.2s; z-index: 20; }
-        #btn-reset:hover { background: rgba(255, 255, 255, 0.2); }
+        /* TOMBOL RESET: Futuristic Neon Glassmorphism */
+        #btn-reset { position: absolute; top: 25px; right: 25px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; padding: 10px 26px; border-radius: 30px; cursor: pointer; font-size: 0.9rem; font-weight: 700; backdrop-filter: blur(8px); box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 20; text-transform: uppercase; letter-spacing: 1px; }
+        #btn-reset:hover { background: #38bdf8; color: #070a13; box-shadow: 0 0 25px rgba(56, 189, 248, 0.6); border-color: #38bdf8; transform: translateY(-1px); }
+        #btn-reset:active { transform: translateY(1px); }
     </style>
 </head>
 <body>
 
     <div id="lobby-area">
-        <h1 style="margin-top:0; color: #e2e8f0;">Galaxy Orbit Jump</h1>
+        <h1>Galaxy Orbit</h1>
         <div id="qrcode"></div>
-        <p id="status-teks">Menunggu koneksi controller...</p>
-        <p style="font-size: 0.9rem; color: #6b7280;">Room ID: <span id="room-id-display" style="color: #38bdf8;"></span></p>
+        <p id="status-teks">Menunggu Controller...</p>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 0; margin-top: 15px;">ROOM CODE: <span id="room-id-display" style="color: #38bdf8; font-weight: 700;"></span></p>
     </div>
 
     <div id="game-area">
-        <button id="btn-reset">Acak Ulang Level</button>
+        <button id="btn-reset">Acak Level</button>
         <canvas id="gameCanvas"></canvas>
     </div>
 
@@ -55,7 +59,7 @@
     const currentUrl = window.location.href.split('/').slice(0, -1).join('/'); 
     const controllerUrl = `${currentUrl}/controller.html?room=${roomId}`;
 
-    new QRCode(document.getElementById("qrcode"), { text: controllerUrl, width: 200, height: 200 });
+    new QRCode(document.getElementById("qrcode"), { text: controllerUrl, width: 180, height: 180 });
 
     let triggerTerakhir = 0; 
 
@@ -86,23 +90,24 @@
     const ctx = canvas.getContext('2d');
 
     let nodesArray = [];
+    let bintangArray = []; // Array penampung partikel bintang parallax
     let currentNodeIndex = 0;
     let kameraY = 0; 
     let targetKameraY = 0;
 
     const bolaKecil = {
-        radius: 12,
+        radius: 10,
         warna: '#ff7675',
         sudut: 0,
         kecepatanRotasi: 0.045, 
-        arahRotasi: 1, // 1 = Searah jarum jam, -1 = Berlawanan arah jarum jam
+        arahRotasi: 1, 
         kecepatanTerbang: 22, 
         status: 'mengorbit', 
         x: 0, 
         y: 0,
         vx: 0, 
         vy: 0,
-        history: [] 
+        history: [] // Diperpanjang kapasitas penampungannya di loop utama
     };
 
     function susunLevel() {
@@ -110,9 +115,9 @@
         let tengahX = window.innerWidth / 2;
         let lebarLayar = window.innerWidth;
         
-        nodesArray.push({ x: tengahX, y: 0, radius: 60, warna: '#0984e3' });
+        nodesArray.push({ x: tengahX, y: 0, radius: 60, warna: '#0ea5e9' });
         
-        const warnaWarni = ['#a01a58', '#6c5ce7', '#00b894', '#e17055', '#fdcb6e', '#00cec9', '#e84393', '#6f11d1', '#26de81'];
+        const warnaWarni = ['#f43f5e', '#6366f1', '#10b981', '#f97316', '#eab308', '#06b6d4', '#d946ef', '#8b5cf6'];
         
         let tinggiMaksimal = 14000; 
         let targetJumlahBola = 160; 
@@ -123,7 +128,7 @@
             if (bolaBerhasilDibuat >= targetJumlahBola) break;
 
             let radiusAcak = 40 + Math.random() * 45; 
-            let acakX = radiusAcak + 30 + Math.random() * (lebarLayar - (radiusAcak * 2) - 60); 
+            let acakX = radiusAcak + 40 + Math.random() * (lebarLayar - (radiusAcak * 2) - 80); 
             let acakY = -(Math.random() * tinggiMaksimal) - 200; 
 
             let posisiAman = true;
@@ -133,7 +138,7 @@
                 let dy = acakY - bolaLain.y;
                 let jarakAntarPusat = Math.sqrt(dx*dx + dy*dy);
                 
-                let jarakKosongEkstra = 60 + Math.random() * 40; 
+                let jarakKosongEkstra = 65 + Math.random() * 45; 
                 let batasAman = radiusAcak + bolaLain.radius + jarakKosongEkstra;
 
                 if (jarakAntarPusat < batasAman) {
@@ -158,17 +163,27 @@
 
         nodesArray.push({
             x: tengahX,
-            y: yTertinggi - 350,
+            y: yTertinggi - 380,
             radius: 85,
             warna: '#ffd700',
             finish: true
         });
 
-        // Reset Data Pemain
+        // GENERASI BINTANG LATAR BELAKANG (PARALLAX)
+        bintangArray = [];
+        for (let s = 0; s < 120; s++) {
+            bintangArray.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: 0.5 + Math.random() * 1.8,
+                alpha: 0.2 + Math.random() * 0.6
+            });
+        }
+
         currentNodeIndex = 0;
         bolaKecil.status = 'mengorbit';
         bolaKecil.sudut = -Math.PI / 2; 
-        bolaKecil.arahRotasi = 1; // Mulai permainan selalu searah jarum jam
+        bolaKecil.arahRotasi = 1; 
         bolaKecil.history = []; 
         if(nodesArray.length > 0) kameraY = nodesArray[0].y;
     }
@@ -193,9 +208,29 @@
             return;
         }
 
+        // Kamera Smooth Interpolation (Lerp)
         targetKameraY = nodesArray[currentNodeIndex].y;
-        kameraY += (targetKameraY - kameraY) * 0.08; 
+        let deltaKamera = (targetKameraY - kameraY);
+        kameraY += deltaKamera * 0.08; 
 
+        // 1. DRAW PARALLAX STARS BACKGROUND
+        ctx.save();
+        for (let i = 0; i < bintangArray.length; i++) {
+            let bintang = bintangArray[i];
+            
+            // Gerakan bintang berlawanan arah kamera dengan faktor kelambatan 0.25 (Efek Parallax Jauh)
+            let drawBintangY = (bintang.y - kameraY * 0.25) % canvas.height;
+            if (drawBintangY < 0) drawBintangY += canvas.height;
+
+            ctx.beginPath();
+            ctx.arc(bintang.x, drawBintangY, bintang.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${bintang.alpha})`;
+            ctx.fill();
+            ctx.closePath();
+        }
+        ctx.restore();
+
+        // 2. MENGGAMBAR SEMUA BOLA BESAR (PLANET)
         for(let i = 0; i < nodesArray.length; i++) {
             let node = nodesArray[i];
             let drawY = node.y - kameraY + canvas.height / 2;
@@ -206,7 +241,7 @@
                 ctx.fillStyle = node.warna;
                 
                 if (node.finish) {
-                    ctx.shadowBlur = 40;
+                    ctx.shadowBlur = 45;
                     ctx.shadowColor = '#ffd700'; 
                 } else if(i === currentNodeIndex) {
                     ctx.shadowBlur = 25; 
@@ -222,11 +257,10 @@
         }
 
         let nodeAktif = nodesArray[currentNodeIndex];
-        let jarakOrbitIdeal = nodeAktif.radius + 30; 
+        let jarakOrbitIdeal = nodeAktif.radius + 28; 
 
-        // LOGIKA BOLA KECIL: Memasukkan faktor arah rotasi
+        // 3. LOGIKA POSISI BOLA KECIL
         if (bolaKecil.status === 'mengorbit') {
-            // Sudut akan ditambah atau dikurang tergantung arah rotasinya saat ini
             bolaKecil.sudut += (bolaKecil.kecepatanRotasi * bolaKecil.arahRotasi);
             bolaKecil.x = nodeAktif.x + jarakOrbitIdeal * Math.cos(bolaKecil.sudut);
             bolaKecil.y = nodeAktif.y + jarakOrbitIdeal * Math.sin(bolaKecil.sudut);
@@ -239,19 +273,15 @@
                 if (i === currentNodeIndex) continue;
 
                 let targetNode = nodesArray[i];
-                let jarakTargetOrbit = targetNode.radius + 30;
+                let jarakTargetOrbit = targetNode.radius + 28;
                 
                 let dx = bolaKecil.x - targetNode.x;
                 let dy = bolaKecil.y - targetNode.y;
                 let distance = Math.sqrt(dx*dx + dy*dy);
 
-                if (distance <= jarakTargetOrbit + 20) { 
-                    // LOGIKA FISIKA: Perkalian Silang Vektor 2D (Cross Product)
-                    // Menentukan apakah bola menabrak dari kiri atau kanan untuk arah putar
+                // Deteksi pendaratan yang sangat mulus & presisi
+                if (distance <= jarakTargetOrbit + 18) { 
                     let crossProduct = (bolaKecil.vx * dy) - (bolaKecil.vy * dx);
-                    
-                    // Jika crossProduct > 0, momentum mengarah berlawanan jarum jam (-1)
-                    // Jika crossProduct < 0, momentum mengarah searah jarum jam (1)
                     bolaKecil.arahRotasi = (crossProduct > 0) ? -1 : 1;
                     
                     currentNodeIndex = i; 
@@ -271,18 +301,28 @@
             }
         }
 
-        // EFEK EKOR
+        // 4. DRAW EFEK EKOR LASER SUPER PANJANG & GLOWING (GLOW TRAIL)
+        // Masukkan posisi koordinat absolut bola kecil saat ini ke histori jejak
         bolaKecil.history.push({ x: bolaKecil.x, y: bolaKecil.y });
-        if (bolaKecil.history.length > 20) {
+        
+        // Batasan ekor diperpanjang menjadi 45 agar terlihat mengalir sangat panjang
+        if (bolaKecil.history.length > 45) {
             bolaKecil.history.shift(); 
         }
+
+        ctx.save();
+        // Menggunakan blending mode 'lighter' agar tumpukan partikel ekor memancarkan efek cahaya neon cerah
+        ctx.globalCompositeOperation = 'lighter'; 
 
         for (let i = 0; i < bolaKecil.history.length; i++) {
             let posisiLama = bolaKecil.history[i];
             let drawEkorY = posisiLama.y - kameraY + canvas.height / 2;
             let rasioEkor = i / bolaKecil.history.length; 
-            let transparansi = rasioEkor * 0.45; 
-            let radiusEkor = bolaKecil.radius * (0.3 + rasioEkor * 0.7); 
+            
+            // Mengatur opacity (transparansi) linier memudar di ujung
+            let transparansi = rasioEkor * 0.55; 
+            // Ukuran ekor meruncing mengecil secara dinamis
+            let radiusEkor = bolaKecil.radius * (0.15 + rasioEkor * 0.85); 
 
             ctx.beginPath();
             ctx.arc(posisiLama.x, drawEkorY, radiusEkor, 0, Math.PI * 2);
@@ -290,12 +330,14 @@
             ctx.fill();
             ctx.closePath();
         }
+        ctx.restore(); // Kembalikan mode blending normal untuk elemen berikutnya
 
+        // 5. GAMBAR BOLA KECIL INTI (PEMAIN)
         let drawBolaKecilY = bolaKecil.y - kameraY + canvas.height / 2;
         ctx.beginPath();
         ctx.arc(bolaKecil.x, drawBolaKecilY, bolaKecil.radius, 0, Math.PI * 2);
         ctx.fillStyle = bolaKecil.warna;
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 18;
         ctx.shadowColor = bolaKecil.warna;
         ctx.fill();
         ctx.closePath();
@@ -307,12 +349,7 @@
     function lepaskanBolaKecil() {
         if (bolaKecil.status === 'mengorbit' && !nodesArray[currentNodeIndex].finish) {
             bolaKecil.status = 'lepas';
-            
-            // LOGIKA FISIKA: Arah terbang dihitung berdasarkan arah rotasi saat ini
-            // Jika arahRotasi = 1 (searah jarum jam), vektor peluru ditambah 90 derajat
-            // Jika arahRotasi = -1 (berlawanan), vektor peluru dikurangi 90 derajat
             let sudutTerbang = bolaKecil.sudut + (Math.PI / 2 * bolaKecil.arahRotasi);
-            
             bolaKecil.vx = bolaKecil.kecepatanTerbang * Math.cos(sudutTerbang);
             bolaKecil.vy = bolaKecil.kecepatanTerbang * Math.sin(sudutTerbang);
         }
