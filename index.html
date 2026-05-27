@@ -8,12 +8,10 @@
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background-color: #1a252f; color: white; margin: 0; padding: 0; overflow: hidden; }
         
-        /* Tampilan Lobby (Scan QR) */
         #lobby-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #2c3e50; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 10; }
         #qrcode { margin: 20px auto; background: white; padding: 15px; border-radius: 8px; display: inline-block; }
         #status-teks { font-size: 1.2rem; color: #f1c40f; font-weight: bold; }
         
-        /* Area Game Utama */
         #game-area { display: none; width: 100vw; height: 100vh; position: relative; }
         canvas { display: block; width: 100%; height: 100%; }
         
@@ -24,14 +22,13 @@
 
     <div id="lobby-area">
         <h1 style="margin-top:0;">Scan untuk Bermain!</h1>
-        <p>Gunakan kamera HP untuk menyambung</p>
         <div id="qrcode"></div>
         <p id="status-teks">Menunggu pemain terhubung...</p>
         <p style="font-size: 0.9rem; color: #bdc3c7;">Room ID: <span id="room-id-display"></span></p>
     </div>
 
     <div id="game-area">
-        <div id="pesan-game">Pemain Terhubung! Tekan HP untuk menembak.</div>
+        <div id="pesan-game">Menunggu Tembakan Pertama...</div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
@@ -39,7 +36,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // Konfigurasi Firebase (Milik Anda)
     const firebaseConfig = {
         apiKey: "AIzaSyB00E-07MNJoN0IfNOsCm9KcH-y7TTwvYQ",
         authDomain: "belajar-github-firestore.firebaseapp.com",
@@ -52,9 +48,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // =========================================
-    // 1. SISTEM KONEKSI LOBBY & QR CODE
-    // =========================================
     const roomId = "Room-" + Math.random().toString(36).substring(2, 6).toUpperCase();
     document.getElementById("room-id-display").innerText = roomId;
 
@@ -73,7 +66,7 @@
             if (snapshot.exists()) {
                 const data = snapshot.data();
 
-                if (data.status === "terhubung") {
+                if (data.status === "terhubung" && document.getElementById("lobby-area").style.display !== "none") {
                     document.getElementById("lobby-area").style.display = "none";
                     document.getElementById("game-area").style.display = "block";
                     resizeCanvas(); 
@@ -81,24 +74,18 @@
 
                 if (data.triggerTime > 0 && data.triggerTime !== triggerTerakhir) {
                     triggerTerakhir = data.triggerTime;
-                    lepaskanBolaKecil(); // Tembak saat terima sinyal HP
+                    lepaskanBolaKecil();
                 }
             }
         });
     }
     inisialisasiRoom();
 
-    // =========================================
-    // 2. FISIKA GAME ENGINE (MULTIPLAYER ORBIT)
-    // =========================================
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Variabel Level Game
     let nodesArray = [];
     let currentNodeIndex = 0;
-    
-    // Variabel Kamera agar layar bisa scroll ke atas
     let kameraY = 0; 
     let targetKameraY = 0;
 
@@ -106,8 +93,8 @@
         radius: 12,
         warna: '#e74c3c',
         sudut: 0,
-        kecepatanRotasi: 0.05, 
-        kecepatanTerbang: 15,
+        kecepatanRotasi: 0.04, 
+        kecepatanTerbang: 16,
         status: 'mengorbit', 
         x: 0, 
         y: 0,
@@ -115,20 +102,21 @@
         vy: 0  
     };
 
-    // Fungsi untuk menyusun lintasan bola dari bawah ke atas
+    // FUNGSI MEMBUAT BANYAK BOLA BESAR
     function susunLevel() {
-        let tengahX = canvas.width / 2;
+        let tengahX = window.innerWidth / 2;
         nodesArray = [
-            { x: tengahX, y: 0, radius: 50, warna: '#3498db' },           // Level 0 (Mulai)
-            { x: tengahX - 150, y: -300, radius: 45, warna: '#9b59b6' },  // Level 1
-            { x: tengahX + 150, y: -600, radius: 40, warna: '#2ecc71' },  // Level 2
-            { x: tengahX - 120, y: -900, radius: 35, warna: '#e67e22' },  // Level 3
-            { x: tengahX, y: -1250, radius: 60, warna: '#f1c40f', finish: true } // Level 4 (Finish)
+            { x: tengahX, y: 0, radius: 50, warna: '#3498db' },
+            { x: tengahX - 150, y: -250, radius: 40, warna: '#9b59b6' },
+            { x: tengahX + 150, y: -500, radius: 45, warna: '#2ecc71' },
+            { x: tengahX - 120, y: -750, radius: 35, warna: '#e67e22' },
+            { x: tengahX + 100, y: -1000, radius: 50, warna: '#1abc9c' },
+            { x: tengahX, y: -1300, radius: 70, warna: '#f1c40f', finish: true }
         ];
         currentNodeIndex = 0;
         bolaKecil.status = 'mengorbit';
         bolaKecil.sudut = 0;
-        kameraY = nodesArray[0].y;
+        if(nodesArray.length > 0) kameraY = nodesArray[0].y;
     }
 
     function resizeCanvas() {
@@ -138,110 +126,109 @@
     }
     window.addEventListener('resize', resizeCanvas);
 
-    // Fungsi Loopping Animasi (60 FPS)
+    // SOLUSI BUG: Panggil ini di awal agar array bola terisi sebelum animasi berjalan!
+    resizeCanvas();
+
     function jalankanGame() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // A. Pergerakan Kamera (Smooth Scrolling)
+        // Jika data belum siap, cegah error
+        if (nodesArray.length === 0) {
+            requestAnimationFrame(jalankanGame);
+            return;
+        }
+
+        // Kamera mengikuti posisi bola saat ini
         targetKameraY = nodesArray[currentNodeIndex].y;
         kameraY += (targetKameraY - kameraY) * 0.1; 
 
-        // B. Gambar Garis Penghubung (Opsional untuk estetika)
+        // Gambar Garis Penghubung antar Bola
         ctx.beginPath();
         ctx.moveTo(nodesArray[0].x, nodesArray[0].y - kameraY + canvas.height/2);
         for(let i = 1; i < nodesArray.length; i++) {
             ctx.lineTo(nodesArray[i].x, nodesArray[i].y - kameraY + canvas.height/2);
         }
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 40;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 15;
         ctx.stroke();
 
-        // C. Gambar Semua Bola Besar (Nodes)
+        // Menggambar Semua Bola Besar
         for(let i = 0; i < nodesArray.length; i++) {
             let node = nodesArray[i];
-            let drawY = node.y - kameraY + canvas.height / 2; // Hitung posisi gambar dikurangi offset kamera
+            let drawY = node.y - kameraY + canvas.height / 2;
 
             ctx.beginPath();
             ctx.arc(node.x, drawY, node.radius, 0, Math.PI * 2);
             ctx.fillStyle = node.warna;
-            
-            // Beri efek glow lebih terang jika ini adalah target orbit saat ini
             if(i === currentNodeIndex) {
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = 30; // Bola yang sedang dipijak bersinar lebih terang
                 ctx.shadowColor = node.warna;
             } else {
                 ctx.shadowBlur = 0;
             }
             ctx.fill();
             ctx.closePath();
-            ctx.shadowBlur = 0; // Reset shadow
+            ctx.shadowBlur = 0;
 
-            // Jika bola finish, beri teks
             if (node.finish) {
                 ctx.fillStyle = "black";
                 ctx.font = "bold 20px Arial";
-                ctx.fillText("FINISH", node.x - 32, drawY + 7);
+                ctx.textAlign = "center";
+                ctx.fillText("FINISH", node.x, drawY + 7);
             }
         }
 
-        // D. Logika Bola Kecil
         let nodeAktif = nodesArray[currentNodeIndex];
-        let jarakOrbitIdeal = nodeAktif.radius + 35; // Jarak dari pusat node
+        let jarakOrbitIdeal = nodeAktif.radius + 30;
 
+        // Logika Bola Kecil Berputar
         if (bolaKecil.status === 'mengorbit') {
-            // Berputar mengelilingi bola yang aktif
             bolaKecil.sudut += bolaKecil.kecepatanRotasi;
             bolaKecil.x = nodeAktif.x + jarakOrbitIdeal * Math.cos(bolaKecil.sudut);
             bolaKecil.y = nodeAktif.y + jarakOrbitIdeal * Math.sin(bolaKecil.sudut);
 
+        // Logika Bola Kecil Meluncur Tembak
         } else if (bolaKecil.status === 'lepas') {
-            // Meluncur lurus ke udara
             bolaKecil.x += bolaKecil.vx;
             bolaKecil.y += bolaKecil.vy;
 
-            // 1. Cek Tabrakan dengan Bola Lain
+            // Cek Tabrakan dengan orbit bola lain
             for (let i = 0; i < nodesArray.length; i++) {
-                if (i === currentNodeIndex) continue; // Jangan nempel ke bola yang sama
+                if (i === currentNodeIndex) continue;
 
                 let targetNode = nodesArray[i];
-                let jarakTargetOrbit = targetNode.radius + 35;
+                let jarakTargetOrbit = targetNode.radius + 30;
                 
-                // Pythagoras
                 let dx = bolaKecil.x - targetNode.x;
                 let dy = bolaKecil.y - targetNode.y;
                 let distance = Math.sqrt(dx*dx + dy*dy);
 
-                // Jika berhasil masuk area tangkap bola lain
-                if (distance <= jarakTargetOrbit + 10) { 
-                    currentNodeIndex = i;
+                if (distance <= jarakTargetOrbit + 15) { 
+                    currentNodeIndex = i; // Pindah kepemilikan bola
                     bolaKecil.status = 'mengorbit';
+                    bolaKecil.sudut = Math.atan2(dy, dx); // Memuluskan rotasi saat mendarat
                     
-                    // Hitung sudut benturan agar bola langsung rotasi dari titik tersebut
-                    bolaKecil.sudut = Math.atan2(dy, dx); 
-                    
-                    // Cek jika menang
                     if (targetNode.finish) {
-                         document.getElementById("pesan-game").innerText = "🏆 MENANG! Kamu mencapai puncak!";
+                         document.getElementById("pesan-game").innerText = "🏆 MENANG! Puncak Tercapai!";
                          document.getElementById("pesan-game").style.color = "#f1c40f";
                     } else {
-                         document.getElementById("pesan-game").innerText = "Keren! Lanjut bidik ke atas!";
+                         document.getElementById("pesan-game").innerText = "Bagus! Lompat lagi ke atas!";
                          document.getElementById("pesan-game").style.color = "#2ecc71";
                     }
                     break;
                 }
             }
 
-            // 2. Cek Jika Jatuh / Keluar Layar (Game Over)
-            // Hitung batas bawah layar berdasarkan posisi kamera saat ini
+            // Aturan Jatuh: Jika bola terlalu jauh meleset
             let batasBawah = kameraY + (canvas.height / 2); 
-            if (bolaKecil.y > batasBawah || bolaKecil.x < 0 || bolaKecil.x > canvas.width) {
-                document.getElementById("pesan-game").innerText = "❌ Meleset dan Jatuh! Mengulang dari awal...";
+            if (bolaKecil.y > batasBawah + 100 || bolaKecil.x < -100 || bolaKecil.x > canvas.width + 100) {
+                document.getElementById("pesan-game").innerText = "❌ Meleset! Jatuh dan mulai dari awal...";
                 document.getElementById("pesan-game").style.color = "#e74c3c";
-                susunLevel(); // Hukum pemain: mulai lagi dari bola pertama!
+                susunLevel(); 
             }
         }
 
-        // E. Gambar Bola Kecil Pemain
+        // Menggambar Bola Kecil
         let drawBolaKecilY = bolaKecil.y - kameraY + canvas.height / 2;
         ctx.beginPath();
         ctx.arc(bolaKecil.x, drawBolaKecilY, bolaKecil.radius, 0, Math.PI * 2);
@@ -255,12 +242,10 @@
         requestAnimationFrame(jalankanGame);
     }
 
-    // Fungsi Trigger Sinyal dari HP
+    // Fungsi Trigger yang mendengarkan HP
     function lepaskanBolaKecil() {
         if (bolaKecil.status === 'mengorbit' && !nodesArray[currentNodeIndex].finish) {
             bolaKecil.status = 'lepas';
-            
-            // Tangential velocity (Arah meluncur tegak lurus dengan orbit)
             bolaKecil.vx = bolaKecil.kecepatanTerbang * Math.cos(bolaKecil.sudut + Math.PI / 2);
             bolaKecil.vy = bolaKecil.kecepatanTerbang * Math.sin(bolaKecil.sudut + Math.PI / 2);
 
@@ -269,7 +254,6 @@
         }
     }
 
-    // Mulai animasi
     jalankanGame();
 
 </script>
