@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orbit Jump - Perfect Spacing</title>
+    <title>Orbit Jump - Dynamic Momentum</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, sans-serif; text-align: center; background-color: #0b0f19; color: white; margin: 0; padding: 0; overflow: hidden; }
@@ -95,7 +95,8 @@
         warna: '#ff7675',
         sudut: 0,
         kecepatanRotasi: 0.045, 
-        kecepatanTerbang: 22, // Dipercepat sedikit karena gap antar bola membesar
+        arahRotasi: 1, // 1 = Searah jarum jam, -1 = Berlawanan arah jarum jam
+        kecepatanTerbang: 22, 
         status: 'mengorbit', 
         x: 0, 
         y: 0,
@@ -104,33 +105,27 @@
         history: [] 
     };
 
-    // GENERASI LEVEL DENGAN ALGORITMA ANTI-TUMPUK (SPATIAL CHECKING)
     function susunLevel() {
         nodesArray = [];
         let tengahX = window.innerWidth / 2;
         let lebarLayar = window.innerWidth;
         
-        // 1. Bola Start (Awal) dijamin aman di tengah bawah
         nodesArray.push({ x: tengahX, y: 0, radius: 60, warna: '#0984e3' });
         
         const warnaWarni = ['#a01a58', '#6c5ce7', '#00b894', '#e17055', '#fdcb6e', '#00cec9', '#e84393', '#6f11d1', '#26de81'];
         
-        let tinggiMaksimal = 14000; // Ruang vertikal ditingkatkan drastis agar muat bola besar
+        let tinggiMaksimal = 14000; 
         let targetJumlahBola = 160; 
-        let batasPercobaan = 3000; // Mencegah freeze jika layar penuh
+        let batasPercobaan = 3000; 
         let bolaBerhasilDibuat = 0;
 
-        // 2. Membentuk Bola Secara Acak & Mengecek Tabrakan
         for (let i = 0; i < batasPercobaan; i++) {
             if (bolaBerhasilDibuat >= targetJumlahBola) break;
 
-            let radiusAcak = 40 + Math.random() * 45; // Ukuran diperbesar (40px s/d 85px)
-            
-            // Jangan terlalu ke pinggir layar
+            let radiusAcak = 40 + Math.random() * 45; 
             let acakX = radiusAcak + 30 + Math.random() * (lebarLayar - (radiusAcak * 2) - 60); 
             let acakY = -(Math.random() * tinggiMaksimal) - 200; 
 
-            // Cek Spasial: Apakah posisi ini menabrak bola lain yang sudah ada?
             let posisiAman = true;
             for (let j = 0; j < nodesArray.length; j++) {
                 let bolaLain = nodesArray[j];
@@ -138,17 +133,15 @@
                 let dy = acakY - bolaLain.y;
                 let jarakAntarPusat = Math.sqrt(dx*dx + dy*dy);
                 
-                // Jarak batas aman = radius bola A + radius bola B + jarak kosong ekstra
-                let jarakKosongEkstra = 60 + Math.random() * 40; // Ada ruang 60-100px antar bola
+                let jarakKosongEkstra = 60 + Math.random() * 40; 
                 let batasAman = radiusAcak + bolaLain.radius + jarakKosongEkstra;
 
                 if (jarakAntarPusat < batasAman) {
-                    posisiAman = false; // Terlalu dekat, batalkan letak bola ini
+                    posisiAman = false; 
                     break;
                 }
             }
 
-            // Jika aman, masukkan ke dalam arena permainan
             if (posisiAman) {
                 let warnaAcak = warnaWarni[Math.floor(Math.random() * warnaWarni.length)];
                 nodesArray.push({ x: acakX, y: acakY, radius: radiusAcak, warna: warnaAcak });
@@ -156,7 +149,6 @@
             }
         }
 
-        // Cari tahu bola mana yang posisinya paling atas/tinggi untuk meletakkan Finish
         let yTertinggi = 0;
         for (let j = 0; j < nodesArray.length; j++) {
             if (nodesArray[j].y < yTertinggi) {
@@ -164,12 +156,11 @@
             }
         }
 
-        // 3. Letakkan Bola Emas di atas bola tertinggi
         nodesArray.push({
             x: tengahX,
             y: yTertinggi - 350,
             radius: 85,
-            warna: '#ffd700', // Cahaya Emas
+            warna: '#ffd700',
             finish: true
         });
 
@@ -177,6 +168,7 @@
         currentNodeIndex = 0;
         bolaKecil.status = 'mengorbit';
         bolaKecil.sudut = -Math.PI / 2; 
+        bolaKecil.arahRotasi = 1; // Mulai permainan selalu searah jarum jam
         bolaKecil.history = []; 
         if(nodesArray.length > 0) kameraY = nodesArray[0].y;
     }
@@ -204,7 +196,6 @@
         targetKameraY = nodesArray[currentNodeIndex].y;
         kameraY += (targetKameraY - kameraY) * 0.08; 
 
-        // 1. MENGGAMBAR BOLA BESAR
         for(let i = 0; i < nodesArray.length; i++) {
             let node = nodesArray[i];
             let drawY = node.y - kameraY + canvas.height / 2;
@@ -231,11 +222,12 @@
         }
 
         let nodeAktif = nodesArray[currentNodeIndex];
-        let jarakOrbitIdeal = nodeAktif.radius + 30; // Radius melingkar menyesuaikan besarnya bola
+        let jarakOrbitIdeal = nodeAktif.radius + 30; 
 
-        // 2. LOGIKA BOLA KECIL
+        // LOGIKA BOLA KECIL: Memasukkan faktor arah rotasi
         if (bolaKecil.status === 'mengorbit') {
-            bolaKecil.sudut += bolaKecil.kecepatanRotasi;
+            // Sudut akan ditambah atau dikurang tergantung arah rotasinya saat ini
+            bolaKecil.sudut += (bolaKecil.kecepatanRotasi * bolaKecil.arahRotasi);
             bolaKecil.x = nodeAktif.x + jarakOrbitIdeal * Math.cos(bolaKecil.sudut);
             bolaKecil.y = nodeAktif.y + jarakOrbitIdeal * Math.sin(bolaKecil.sudut);
 
@@ -253,8 +245,15 @@
                 let dy = bolaKecil.y - targetNode.y;
                 let distance = Math.sqrt(dx*dx + dy*dy);
 
-                // Toleransi pendaratan disesuaikan agar tidak mudah gagal tapi tidak terlalu mudah
                 if (distance <= jarakTargetOrbit + 20) { 
+                    // LOGIKA FISIKA: Perkalian Silang Vektor 2D (Cross Product)
+                    // Menentukan apakah bola menabrak dari kiri atau kanan untuk arah putar
+                    let crossProduct = (bolaKecil.vx * dy) - (bolaKecil.vy * dx);
+                    
+                    // Jika crossProduct > 0, momentum mengarah berlawanan jarum jam (-1)
+                    // Jika crossProduct < 0, momentum mengarah searah jarum jam (1)
+                    bolaKecil.arahRotasi = (crossProduct > 0) ? -1 : 1;
+                    
                     currentNodeIndex = i; 
                     bolaKecil.status = 'mengorbit';
                     bolaKecil.sudut = Math.atan2(dy, dx); 
@@ -272,7 +271,7 @@
             }
         }
 
-        // 3. EFEK EKOR BOLA KECIL
+        // EFEK EKOR
         bolaKecil.history.push({ x: bolaKecil.x, y: bolaKecil.y });
         if (bolaKecil.history.length > 20) {
             bolaKecil.history.shift(); 
@@ -292,7 +291,6 @@
             ctx.closePath();
         }
 
-        // 4. GAMBAR BOLA KECIL INTI
         let drawBolaKecilY = bolaKecil.y - kameraY + canvas.height / 2;
         ctx.beginPath();
         ctx.arc(bolaKecil.x, drawBolaKecilY, bolaKecil.radius, 0, Math.PI * 2);
@@ -309,8 +307,14 @@
     function lepaskanBolaKecil() {
         if (bolaKecil.status === 'mengorbit' && !nodesArray[currentNodeIndex].finish) {
             bolaKecil.status = 'lepas';
-            bolaKecil.vx = bolaKecil.kecepatanTerbang * Math.cos(bolaKecil.sudut + Math.PI / 2);
-            bolaKecil.vy = bolaKecil.kecepatanTerbang * Math.sin(bolaKecil.sudut + Math.PI / 2);
+            
+            // LOGIKA FISIKA: Arah terbang dihitung berdasarkan arah rotasi saat ini
+            // Jika arahRotasi = 1 (searah jarum jam), vektor peluru ditambah 90 derajat
+            // Jika arahRotasi = -1 (berlawanan), vektor peluru dikurangi 90 derajat
+            let sudutTerbang = bolaKecil.sudut + (Math.PI / 2 * bolaKecil.arahRotasi);
+            
+            bolaKecil.vx = bolaKecil.kecepatanTerbang * Math.cos(sudutTerbang);
+            bolaKecil.vy = bolaKecil.kecepatanTerbang * Math.sin(sudutTerbang);
         }
     }
 
