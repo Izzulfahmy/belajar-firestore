@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter GitHub to Firestore</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            font-size: 4rem; 
+            margin: 20px 0;
+            color: #1a73e8;
+        }
+        .loading {
+            font-size: 1.2rem;
+            color: #666;
+            margin: 20px 0;
+        }
+        button {
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 12px 24px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        #btn-tambah {
+            background-color: #34a853;
+            color: white;
+        }
+        #btn-tambah:hover { background-color: #2d8e47; }
+        
+        #btn-kurang {
+            background-color: #ea4335;
+            color: white;
+        }
+        #btn-kurang:hover { background-color: #d3382b; }
+
+        button:disabled {
+            background-color: #ccc !important;
+            color: #666;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Sistem Counter Real-Time</h2>
+        <p>Hubungan GitHub Pages & Cloud Firestore</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+        <div id="loading" class="loading">Menghubungkan ke Firestore...</div>
+        <h1 id="angka-tampilan" style="display:none;">0</h1>
+
+        <button id="btn-kurang" disabled>Reverse (-1)</button>
+        <button id="btn-tambah" disabled>Tambah (+1)</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Konfigurasi Firebase milik Anda yang sudah dimasukkan langsung
+        const firebaseConfig = {
+            apiKey: "AIzaSyB00E-07MNJoN0IfNOsCm9KcH-y7TTwvYQ",
+            authDomain: "belajar-github-firestore.firebaseapp.com",
+            projectId: "belajar-github-firestore",
+            storageBucket: "belajar-github-firestore.firebasestorage.app",
+            messagingSenderId: "246762592469",
+            appId: "1:246762592469:web:595d8f2a8a78909771aa5c",
+            measurementId: "G-5NRM7J8KVH"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Referensi ke dokumen 'counter_data' di dalam koleksi 'apps'
+        const docRef = doc(db, "apps", "counter_data");
+
+        // Ambil elemen DOM HTML
+        const angkaTampilan = document.getElementById("angka-tampilan");
+        const loadingDiv = document.getElementById("loading");
+        const btnTambah = document.getElementById("btn-tambah");
+        const btnKurang = document.getElementById("btn-kurang");
+
+        // Mendengarkan perubahan data secara Real-Time dari Firestore
+        onSnapshot(docRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                
+                // Ambil field 'angka' (Firestore int64 otomatis dikonversi ke JS Number)
+                angkaTampilan.innerText = data.angka;
+                
+                // Sembunyikan loading, tampilkan angka, dan aktifkan tombol
+                loadingDiv.style.display = "none";
+                angkaTampilan.style.display = "block";
+                btnTambah.disabled = false;
+                btnKurang.disabled = false;
+            } else {
+                loadingDiv.innerText = "Error: Dokumen 'apps/counter_data' tidak ditemukan di Firestore. Pastikan Nama Koleksi & ID Dokumen sudah benar.";
+                console.error("Dokumen tidak ditemukan!");
+            }
+        }, (error) => {
+            loadingDiv.innerText = "Gagal memuat data. Periksa aturan (Rules) Firestore Anda.";
+            console.error("Firestore Error:", error);
+        });
+
+        // Event listener saat tombol "Tambah (+1)" diklik
+        btnTambah.addEventListener("click", async () => {
+            try {
+                await updateDoc(docRef, {
+                    angka: increment(1)
+                });
+            } catch (error) {
+                console.error("Gagal menambah angka:", error);
+            }
+        });
+
+        // Event listener saat tombol "Reverse (-1)" diklik
+        btnKurang.addEventListener("click", async () => {
+            try {
+                await updateDoc(docRef, {
+                    angka: increment(-1)
+                });
+            } catch (error) {
+                console.error("Gagal mengurangi angka:", error);
+            }
+        });
+    </script>
+</body>
+</html>
